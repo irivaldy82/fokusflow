@@ -57,6 +57,14 @@ fn db(app: &AppHandle) -> Result<Connection, String> {
             content TEXT NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+        -- Menyimpan keseluruhan state FokusFlow Premium sebagai JSON.
+        -- Ini memungkinkan antarmuka premium berkembang tanpa kehilangan
+        -- portabilitas satu file SQLite.
+        CREATE TABLE IF NOT EXISTS app_state (
+            state_key TEXT PRIMARY KEY,
+            content TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         INSERT OR IGNORE INTO notes(id, content) VALUES (1, '');"
     ).map_err(|e| e.to_string())?;
     Ok(conn)
@@ -133,10 +141,60 @@ fn database_location(app: AppHandle) -> Result<String, String> {
     Ok(db_path(&app)?.display().to_string())
 }
 
+#[tauri::command]
+fn load_app_state(app: AppHandle) -> Result<Option<String>, String> {
+    let conn = db(&app)?;
+    match conn.query_row(
+        "SELECT content FROM app_state WHERE state_key = 'premium_state'",
+        [],
+        |r| r.get(0),
+    ) {
+        Ok(value) => Ok(Some(value)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[tauri::command]
+fn save_app_state(app: AppHandle, content: String) -> Result<(), String> {
+    db(&app)?.execute(
+        "INSERT INTO app_state(state_key, content, updated_at)
+         VALUES ('premium_state', ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(state_key) DO UPDATE SET content = excluded.content, updated_at = CURRENT_TIMESTAMP",
+        params![content],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn backup_database(app: AppHandle) -> Result<String, String> {
+    let source = db_path(&app)?;
+    let backup_dir = source.parent().ok_or("Folder database tidak ditemukan")?.join("backups");
+    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+    let stamp = chrono_like_timestamp();
+    let target = backup_dir.join(format!("FokusFlow-{}.sqlite", stamp));
+    // SQLite memakai rollback journal secara default di aplikasi ini; memastikan
+    // koneksi selesai dibuka/ditutup sebelum salinan dibuat.
+    drop(db(&app)?);
+    fs::copy(&source, &target).map_err(|e| e.to_string())?;
+    Ok(target.display().to_string())
+}
+
+fn chrono_like_timestamp() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now().duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs().to_string())
+        .unwrap_or_else(|_| "backup".to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| { db(&app.handle()).map_err(|e| std::io::Error::other(e))?; Ok(()) })
-        .invoke_handler(tauri::generate_handler![list_tasks, add_task, toggle_task, save_focus_session, daily_summary, load_note, save_note, database_location])
+        .invoke_handler(tauri::generate_handler![
+            list_tasks, add_task, toggle_task, save_focus_session,
+            daily_summary, load_note, save_note, database_location,
+            load_app_state, save_app_state, backup_database
+        ])
         .run(tauri::generate_context!())
         .expect("FokusFlow tidak dapat dijalankan");
 }
