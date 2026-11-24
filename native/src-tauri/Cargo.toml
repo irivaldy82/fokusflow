@@ -1,0 +1,13 @@
+[package]
+name = "fokusflow"
+version = "0.1.0"
+description = "FokusFlow desktop"
+authors = ["FokusFlow"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
