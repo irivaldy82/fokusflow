@@ -150,6 +150,19 @@ main();
     dbButton.className='btn ghost';dbButton.textContent='Cadangkan SQLite';
     dbButton.onclick=async()=>{try{const path=await invoke('backup_database');toast('Backup SQLite dibuat: '+path)}catch(error){toast('Backup gagal: '+error)}};
     $('#settings .card').insertBefore(dbButton,$('#settings .card').lastElementChild);
+    const importButton=document.createElement('button');
+    const picker=document.createElement('input');
+    picker.type='file';picker.accept='.sqlite,.db,application/x-sqlite3';picker.style.display='none';
+    importButton.className='btn ghost';importButton.textContent='Pulihkan SQLite';
+    importButton.onclick=()=>picker.click();
+    picker.onchange=async()=>{const file=picker.files?.[0];if(!file)return;
+      if(!confirm('Pulihkan database ini? Data SQLite saat ini akan disalin sebagai cadangan otomatis.'))return;
+      try{const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=reject;reader.readAsDataURL(file)});
+        await invoke('restore_database',{contentBase64:data});toast('Database dipulihkan. Aplikasi akan memuat ulang.');setTimeout(()=>location.reload(),900)
+      }catch(error){toast('Pemulihan gagal: '+error)}
+    };
+    $('#settings .card').insertBefore(importButton,dbButton.nextSibling);
+    $('#settings .card').append(picker);
     document.querySelector('.badge').textContent='PREMIUM · SQLITE LOKAL';
   }catch(error){console.error('SQLite bridge:',error)}
 })();
