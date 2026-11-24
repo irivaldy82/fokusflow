@@ -1,0 +1,40 @@
+name: Build FokusFlow Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Get source
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install app dependencies
+        working-directory: native
+        run: npm install
+
+      - name: Build MSI installer
+        working-directory: native
+        run: npm run build:windows
+
+      - name: Upload FokusFlow installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: FokusFlow-Windows-Installer
+          path: native/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 30
