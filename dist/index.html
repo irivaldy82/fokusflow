@@ -137,6 +137,8 @@ main();
       Object.assign(d,saved);
       localStorage.setItem(KEY,JSON.stringify(d));
       render();main();
+    }else{
+      await invoke('save_app_state',{content:JSON.stringify(d)});
     }
     let previous=JSON.stringify(d);
     setInterval(async()=>{
