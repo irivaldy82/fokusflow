@@ -150,7 +150,7 @@ main();
     },700);
     const dbButton=document.createElement('button');
     dbButton.className='btn ghost';dbButton.textContent='Cadangkan SQLite';
-    dbButton.onclick=async()=>{try{const path=await invoke('backup_database');toast('Backup SQLite dibuat: '+path)}catch(error){toast('Backup gagal: '+error)}};
+    dbButton.onclick=async()=>{try{await invoke('save_app_state',{content:JSON.stringify(d)});const path=await invoke('backup_database');toast('Backup SQLite dibuat: '+path)}catch(error){toast('Backup gagal: '+error)}};
     $('#settings .card').insertBefore(dbButton,$('#settings .card').lastElementChild);
     const importButton=document.createElement('button');
     const picker=document.createElement('input');
