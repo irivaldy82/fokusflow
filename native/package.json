@@ -1,0 +1,13 @@
+{
+  "name": "fokusflow-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop shell for FokusFlow",
+  "scripts": {
+    "dev": "tauri dev",
+    "build:windows": "tauri build --bundles msi"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}
