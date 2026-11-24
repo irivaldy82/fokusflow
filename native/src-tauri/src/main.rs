@@ -4,6 +4,7 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::fs;
 use tauri::{AppHandle, Manager};
+use base64::{engine::general_purpose::STANDARD, Engine};
 
 #[derive(Serialize)]
 struct Task {
@@ -180,6 +181,26 @@ fn backup_database(app: AppHandle) -> Result<String, String> {
     Ok(target.display().to_string())
 }
 
+#[tauri::command]
+fn restore_database(app: AppHandle, content_base64: String) -> Result<(), String> {
+    let bytes = STANDARD.decode(content_base64).map_err(|e| e.to_string())?;
+    if bytes.len() < 16 || &bytes[..16] != b"SQLite format 3\0" {
+        return Err("File yang dipilih bukan database SQLite yang valid".to_string());
+    }
+    let target = db_path(&app)?;
+    let temporary = target.with_extension("sqlite.restore");
+    fs::write(&temporary, bytes).map_err(|e| e.to_string())?;
+    // Memastikan database sementara dapat dibuka sebelum mengganti database aktif.
+    Connection::open(&temporary).map_err(|e| e.to_string())?;
+    if target.exists() {
+        let rollback = target.with_extension("before-restore.sqlite");
+        fs::copy(&target, &rollback).map_err(|e| e.to_string())?;
+        fs::remove_file(&target).map_err(|e| e.to_string())?;
+    }
+    fs::rename(&temporary, &target).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn chrono_like_timestamp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now().duration_since(UNIX_EPOCH)
@@ -193,7 +214,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             list_tasks, add_task, toggle_task, save_focus_session,
             daily_summary, load_note, save_note, database_location,
-            load_app_state, save_app_state, backup_database
+            load_app_state, save_app_state, backup_database, restore_database
         ])
         .run(tauri::generate_context!())
         .expect("FokusFlow tidak dapat dijalankan");
