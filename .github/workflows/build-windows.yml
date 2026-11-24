@@ -27,6 +27,10 @@ jobs:
         working-directory: native
         run: npm install
 
+      - name: Generate Windows icon set with Tauri
+        working-directory: native
+        run: npx tauri icon icon.png
+
       - name: Build MSI installer
         working-directory: native
         run: npm run build:windows
